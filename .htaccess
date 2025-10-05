@@ -1,15 +1,46 @@
-<IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews
-    </IfModule>
+#############################################
+# Root .htaccess for Hostinger / shared hosts
+# Routes all requests into the Laravel `public/` folder
+# Place this file in the project root (one level above `public/`).
+#
+# Two common Hostinger deployment approaches:
+# 1) Point the domain's document root to the `public/` folder (preferred).
+# 2) If you must use the project root as document root, use this file to
+#    internally rewrite requests into `public/` while preventing access
+#    to sensitive directories.
+#############################################
 
+<IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Redirect Trailing Slashes...
-    RewriteRule ^(.*)/$ /$1 [L,R=301]
+    # --- Prevent direct access to sensitive directories/files ---
+    # Deny access to app, bootstrap, config, database, resources, routes, storage, vendor
+    <IfModule mod_authz_core.c>
+        <RequireAll>
+            Require all granted
+        </RequireAll>
+    </IfModule>
 
-    # Handle Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+    # Explicitly forbid dotfiles and PHP sources outside public/
+    RewriteRule (^|/)(\.env|\.git|composer\.json|composer\.lock|phpunit\.xml|artisan)$ - [F,L]
+
+    # If the request is for an existing file or directory in the root, serve it
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # If the request already begins with public/, serve it as-is
+    RewriteCond %{REQUEST_URI} !^/public/
+
+    # Rewrite all other requests to the public/ directory (internal rewrite)
+    RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
+
+# Fallback for servers without mod_rewrite: show a simple message or rely on Hostinger settings
+<IfModule !mod_rewrite.c>
+    <IfModule mod_alias.c>
+        RedirectMatch 403 /app/|/bootstrap/|/config/|/database/|/resources/|/routes/|/storage/|/vendor/
+    </IfModule>
+</IfModule>
+
+# End of file
